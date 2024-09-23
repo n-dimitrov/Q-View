@@ -1,6 +1,5 @@
 import os
 from googleapiclient.discovery import build
-from youtube_transcript_api import YouTubeTranscriptApi
 import pandas as pd
 
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
@@ -37,17 +36,3 @@ df['Date'] = pd.to_datetime(df['Published At'])
 df['Days'] = (pd.Timestamp.now(tz='UTC') - df['Date']).dt.days
 
 print(df)
-
-
-# # Step 2: Download Captions
-# transcripts = []
-# for vid in video_ids:
-#     try:
-#         transcript = YouTubeTranscriptApi.get_transcript(vid)
-#         text = " ".join([t['text'] for t in transcript])
-#         transcripts.append(text)
-#     except Exception as e:
-#         print(f"Could not get transcript for video {vid}: {e}")
-
-# # Step 3: Generate Summary
-# combined_text = "\n".join(transcripts)
