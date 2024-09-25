@@ -2,6 +2,7 @@ import streamlit as st
 from googleapiclient.discovery import build
 import pandas as pd
 import re
+from youtube_transcript_api import YouTubeTranscriptApi
 
 st.set_page_config(
     page_title="Q-View",
@@ -78,8 +79,12 @@ def search_youtube(topic, maxResults):
                 stats = item['statistics']
                 content = item['contentDetails']
                 # as integers
-                views = int(stats['viewCount'])
-                likes = int(stats['likeCount'])
+                views = 0
+                if 'viewCount' in stats:
+                    views = int(stats['viewCount'])
+                likes = 0
+                if 'likeCount' in stats:
+                    likes = int(stats['likeCount'])
                 caption = content['caption'] == 'true'
                 duration = content['duration']
                 seconds = iso_duration_to_seconds(duration)
@@ -98,7 +103,7 @@ st.title('Q-View')
 st.write('A simple tool to search for videos on YouTube and generate summaries of the search results')
 
 with st.container(border=True):
-    topic = st.text_input('Enter a topic to search for videos on YouTube', 'Top Universities in Europe')
+    topic = st.text_input('Enter a topic to search for videos on YouTube', 'The future of AI')
     button = st.button('Q-View')
     if (button):
         with st.spinner('Searching... '):
@@ -134,14 +139,23 @@ with st.container(border=True):
                 with st.container(border=True):
                     st.subheader(row['Title'])
 
+                    video_id = row['Video ID']
+                    st.write(video_id)
+
                     col1, col2, col3 = st.columns(3)
                     col1.image(row['Thumbnail'])
                     col2.write(row['Link'])
                     pa = pd.to_datetime(row['Published At']).strftime('%Y-%m-%d')
-                    col3.write('Published At ' + pa)
+                    days = row['Days']
+                    col3.write('Published At ' + pa + " / " + str(days) + " days ago")    
 
                     col4, col5, col6 = st.columns(3)
                     col4.metric('Views', row['Views'])
                     col5.metric('Likes', row['Likes'])
                     col6.metric('Duration (sec)', row['Seconds'])
+
+                    transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US'])
+                    transcript = " ".join([t['text'] for t in transcript])
+                    with st.expander('Transcript'):
+                        st.write(transcript)
 
