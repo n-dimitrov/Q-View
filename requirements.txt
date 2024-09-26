@@ -1,8 +1,7 @@
-streamlit
-pandas
-google-api-python-client
-youtube_transcript_api
+streamlit==1.38.0
+pandas==2.2.3
+google-api-python-client==2.146.0
+youtube-transcript-api==0.6.2
 google-cloud-aiplatform
-google-cloud-storage
-st-files-connection
-json
+google-cloud-storage==2.18.2
+st-files-connection==0.1.0
