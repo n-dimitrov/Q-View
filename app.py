@@ -189,6 +189,7 @@ with st.container(border=True):
                         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US'])
                         transcript = " ".join([t['text'] for t in transcript])
                     except:
+                        st.error('No transcript available')
                         pass
 
                     with st.expander('Transcript'):
