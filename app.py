@@ -3,12 +3,17 @@ from googleapiclient.discovery import build
 import pandas as pd
 import re
 from youtube_transcript_api import YouTubeTranscriptApi
+from st_files_connection import FilesConnection
+import json
 
 st.set_page_config(
     page_title="Q-View",
     page_icon="🟡",
     layout="wide",
 )
+
+GCS_BUCKET = 'q-view'
+GCS_STOGAGE_PATH = f'gs://{GCS_BUCKET}'
 
 def iso_duration_to_seconds(iso_duration):
     # Parse the ISO 8601 duration
@@ -102,12 +107,19 @@ def search_youtube(topic, maxResults):
 st.title('Q-View')
 st.write('A simple tool to search for videos on YouTube and generate summaries of the search results')
 
+transcripts_files = []
+youtube_videos = []
+now = pd.Timestamp.now(tz='UTC').strftime('%Y%m%d-%H%M%S')
+path = f"{now}"
+
+# video search results
 with st.container(border=True):
     topic = st.text_input('Enter a topic to search for videos on YouTube', 'The future of AI')
     button = st.button('Q-View')
     if (button):
         with st.spinner('Searching... '):
             df = search_youtube(topic, 20)
+            path = f'{now}-{topic.replace(" ", "-")}'
 
             with st.expander('Results'):
                 ff = st.data_editor(
@@ -132,12 +144,18 @@ with st.container(border=True):
 
             # sort by views
             df = df.sort_values(by='Views', ascending=False)
+            
+            # max 5
+            df = df.head(5)
 
-            # st.write(df)
+            # connect to google cloud storage
+            conn = st.connection('gcs', type=FilesConnection)
+
             # itreate over the rows
             for index, row in df.iterrows():
                 with st.container(border=True):
-                    st.subheader(row['Title'])
+                    title = row['Title']
+                    st.subheader(title)
 
                     video_id = row['Video ID']
                     st.write(video_id)
@@ -154,8 +172,51 @@ with st.container(border=True):
                     col5.metric('Likes', row['Likes'])
                     col6.metric('Duration (sec)', row['Seconds'])
 
-                    transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US'])
-                    transcript = " ".join([t['text'] for t in transcript])
+                    youtube_videos.append({
+                        'title': title,
+                        'id': video_id,
+                        'link': row['Link'],
+                        'published_at': pa,
+                        'days': days,
+                        'views': row['Views'],
+                        'likes': row['Likes'],
+                        'duration': row['Seconds']
+                    })
+
+                    # try to get the transcript
+                    transcript = ''
+                    try:
+                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US'])
+                        transcript = " ".join([t['text'] for t in transcript])
+                    except:
+                        pass
+
                     with st.expander('Transcript'):
                         st.write(transcript)
+
+                    with st.spinner("Uploading transcript..."):
+                        filename = f"{GCS_STOGAGE_PATH}/{path}/{video_id}.txt"
+                        with conn.open(filename, "w") as f:
+                            f.write(transcript)
+                        # st.write("Transcript uploaded to " + filename)
+                        transcripts_files.append(filename)
+
+
+        with st.container(border=True):
+            st.subheader('Request Summary')
+            json_filename = f"{GCS_STOGAGE_PATH}/{path}/request.json"
+            request_json = {
+                'topic': topic,
+                'videos': youtube_videos,
+                'transcripts': transcripts_files
+            }
+
+            json_string = json.dumps(request_json)
+            st.write(request_json)
+            with st.spinner("Uploading request..."):
+                with conn.open(json_filename, "w") as f:
+                    f.write(json_string)
+                st.write("Request file uploaded to " + json_filename)
+
+
 

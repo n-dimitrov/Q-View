@@ -4,3 +4,5 @@ google-api-python-client
 youtube_transcript_api
 google-cloud-aiplatform
 google-cloud-storage
+st-files-connection
+json
