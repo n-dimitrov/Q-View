@@ -4,6 +4,7 @@ import pandas as pd
 import re
 from youtube_transcript_api import YouTubeTranscriptApi
 from st_files_connection import FilesConnection
+import requests
 import json
 
 st.set_page_config(
@@ -103,7 +104,7 @@ def search_youtube(topic, maxResults):
         df['Days'] = (pd.Timestamp.now(tz='UTC') - df['Date']).dt.days
                 
     return df
-
+    
 st.title('Q-View')
 st.write('A simple tool to search for videos on YouTube and generate summaries of the search results')
 
@@ -114,6 +115,7 @@ path = f"{now}"
 
 # video search results
 with st.container(border=True):
+    st.subheader('Input')
     topic = st.text_input('Enter a topic to search for videos on YouTube', 'The future of AI')
     button = st.button('Q-View')
     if (button):
@@ -206,18 +208,44 @@ with st.container(border=True):
         with st.container(border=True):
             st.subheader('Request Summary')
             json_filename = f"{GCS_STOGAGE_PATH}/{path}/request.json"
+            result_filename = f"{GCS_STOGAGE_PATH}/{path}/result.json"
             request_json = {
                 'topic': topic,
                 'videos': youtube_videos,
-                'transcripts': transcripts_files
+                'transcripts': transcripts_files,
+                'prompt': 'You are a helpful AI assistant wich acts as a tutor for students. Your first task is to generate a nice summary of the provided transcripts which are related to the topic of ' + topic + '. Please provide a summary of the provided transcripts. Your second task is to generate a 10 questions related to the same topic based only on information from the provided transcripts. Please provide 10 questions related to the topic and the answer.'
             }
 
             json_string = json.dumps(request_json)
-            st.write(request_json)
+            with st.expander('Request JSON', expanded=False):
+                st.write(request_json)
             with st.spinner("Uploading request..."):
                 with conn.open(json_filename, "w") as f:
                     f.write(json_string)
                 st.write("Request file uploaded to " + json_filename)
+
+        with st.container(border=True):
+            st.subheader('Result')
+            # send the request to the AI
+            with st.spinner("AI processing..."):
+                headers = {
+                    "Content-Type": "application/json; charset=UTF-8"
+                }
+                url = "https://q-view-706353392380.europe-west3.run.app"
+                response = requests.post(url, headers=headers, json=request_json)
+                if response.status_code in [200, 201]:
+                    result = response.json()
+                    st.info(result['result'])
+                    # save the result
+                    with conn.open(result_filename, "w") as f:
+                        f.write(json.dumps(result))
+                    st.write("Result file uploaded to " + result_filename)
+                else:
+                    st.error(f"Error: Received status code {response.status_code}")
+
+
+
+            
 
 
 
